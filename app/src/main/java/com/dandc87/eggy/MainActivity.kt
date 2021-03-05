@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.Icon
+import androidx.compose.material.IconToggleButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
@@ -38,7 +39,9 @@ import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowLeft
 import androidx.compose.material.icons.filled.ArrowRight
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +77,7 @@ fun MyApp(
     tickSpacing: Dp = 32.dp,
     millisPerTick: Int = 1000 * 60,
 ) {
+    val fastForward = remember { mutableStateOf(false) }
     val tickSpacingPx = with(LocalDensity.current) { tickSpacing.toPx() }
     val countdownMillis = remember { mutableStateOf(0) }
     val currentCountdown = remember { mutableStateOf<Job?>(null) }
@@ -91,6 +95,18 @@ fun MyApp(
                 title = {
                     Text(text = stringResource(id = R.string.app_name))
                 },
+                actions = {
+                    IconToggleButton(
+                        checked = fastForward.value,
+                        onCheckedChange = { fastForward.value = !fastForward.value }
+                    ) {
+                        if (fastForward.value) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Go Normal")
+                        } else {
+                            Icon(Icons.Default.Speed, contentDescription = "Go Fast")
+                        }
+                    }
+                }
             )
         },
         content = {
@@ -108,11 +124,19 @@ fun MyApp(
                         },
                         onDragStopped = { v ->
                             currentCountdown.value = launch {
-                                val startTime = withFrameMillis { it }
-                                val startCountdown = countdownMillis.value
+                                var startTime = withFrameMillis { it }
                                 do {
-                                    val delta = withFrameMillis { it } - startTime
-                                    countdownMillis.value = (startCountdown - delta.toInt())
+                                    val delta = withFrameMillis { now ->
+                                        val delta = now - startTime
+                                        startTime = now
+                                        delta
+                                    }
+                                    val multiplier = if (fastForward.value) 100 else 1
+                                    countdownMillis.value = (
+                                        countdownMillis.value - delta
+                                            .times(multiplier)
+                                            .toInt()
+                                        )
                                         .coerceAtLeast(0)
                                 } while (countdownMillis.value > 0)
                             }
