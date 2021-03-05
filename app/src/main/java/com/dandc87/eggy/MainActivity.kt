@@ -18,9 +18,12 @@ package com.dandc87.eggy
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.Icon
 import androidx.compose.material.IconToggleButton
@@ -37,12 +41,13 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowLeft
 import androidx.compose.material.icons.filled.ArrowRight
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameMillis
@@ -79,8 +84,8 @@ fun MyApp(
 ) {
     val fastForward = remember { mutableStateOf(false) }
     val tickSpacingPx = with(LocalDensity.current) { tickSpacing.toPx() }
-    val countdownMillis = remember { mutableStateOf(0) }
     val currentCountdown = remember { mutableStateOf<Job?>(null) }
+    val countdownMillis = remember { mutableStateOf(0) }
 
     val dragState = rememberDraggableState(
         onDelta = {
@@ -114,33 +119,11 @@ fun MyApp(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxSize()
-                    .draggable(
-                        state = dragState,
-                        orientation = Orientation.Vertical,
-                        reverseDirection = true,
-                        startDragImmediately = true,
-                        onDragStarted = {
-                            currentCountdown.value?.cancel()
-                        },
-                        onDragStopped = { v ->
-                            currentCountdown.value = launch {
-                                var startTime = withFrameMillis { it }
-                                do {
-                                    val delta = withFrameMillis { now ->
-                                        val delta = now - startTime
-                                        startTime = now
-                                        delta
-                                    }
-                                    val multiplier = if (fastForward.value) 60 else 1
-                                    countdownMillis.value = (
-                                        countdownMillis.value - delta
-                                            .times(multiplier)
-                                            .toInt()
-                                        )
-                                        .coerceAtLeast(0)
-                                } while (countdownMillis.value > 0)
-                            }
-                        },
+                    .eggTimerDrag(
+                        dragState = dragState,
+                        countdownMillis = countdownMillis,
+                        fastForward = fastForward,
+                        currentCountdown = currentCountdown,
                     ),
             ) {
                 EggTimer(
@@ -151,8 +134,14 @@ fun MyApp(
                         .fillMaxWidth(0.5f)
                         .fillMaxHeight()
                 )
+                Box(
+                    modifier = Modifier
+                        .background(color = MaterialTheme.colors.secondary)
+                        .fillMaxHeight()
+                        .width(1.dp)
+                )
                 Icon(
-                    imageVector = Icons.Default.ArrowLeft,
+                    imageVector = Icons.Default.ChevronLeft,
                     contentDescription = null,
                     tint = MaterialTheme.colors.secondary,
                 )
@@ -162,6 +151,42 @@ fun MyApp(
                 )
             }
         }
+    )
+}
+
+private fun Modifier.eggTimerDrag(
+    dragState: DraggableState,
+    fastForward: MutableState<Boolean>,
+    countdownMillis: MutableState<Int>,
+    currentCountdown: MutableState<Job?>,
+): Modifier {
+    return draggable(
+        state = dragState,
+        orientation = Orientation.Vertical,
+        reverseDirection = true,
+        startDragImmediately = true,
+        onDragStarted = {
+            currentCountdown.value?.cancel()
+        },
+        onDragStopped = { v ->
+            currentCountdown.value = launch {
+                var startTime = withFrameMillis { it }
+                do {
+                    val delta = withFrameMillis { now ->
+                        val delta = now - startTime
+                        startTime = now
+                        delta
+                    }
+                    val multiplier = if (fastForward.value) 60 else 1
+                    countdownMillis.value = (
+                        countdownMillis.value - delta
+                            .times(multiplier)
+                            .toInt()
+                        )
+                        .coerceAtLeast(0)
+                } while (countdownMillis.value != 0)
+            }
+        },
     )
 }
 
