@@ -131,7 +131,7 @@ fun MyApp(
                                         startTime = now
                                         delta
                                     }
-                                    val multiplier = if (fastForward.value) 100 else 1
+                                    val multiplier = if (fastForward.value) 60 else 1
                                     countdownMillis.value = (
                                         countdownMillis.value - delta
                                             .times(multiplier)
